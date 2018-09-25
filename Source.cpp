@@ -1,30 +1,35 @@
 #include<GL/glew.h>
 #include<GLFW/glfw3.h>
-#include<glm/glm.hpp>
+#include<glm.hpp>
 
 #include<iostream>
 #include<vector>
 
 #include "Shapes.h"
 
-const int SCR_WIDTH = 800, SCR_HEIGHT = 600;
+//const int SCR_WIDTH = 800, SCR_HEIGHT = 600;
 
+enum Shape_Type
+{
+	LINE,RECTANGLE,CIRCLE
+};
+
+Shape_Type current = CIRCLE;
+
+std::vector<Shape*> shapes;
+
+Shape *C;
 
 bool secondPoint = false;
 
-//float vertices[100];
-std::vector<glm::vec2> vertices;
-int n = 0;
 
-glm::vec2 points[2] = {glm::vec2(0.0f,0.0f),glm::vec2(0.0f,0.0f)};
+glm::vec2 points[2] = { glm::vec2(0.0f,0.0f),glm::vec2(0.0f,0.0f) };
 
 //Circle Parameters
 const float angleDiff = 10.0f;
 float radius = 0.5f;
 
 //
-
-//Circle *c = new Circle();
 
 
 const char* vertexShaderSource =
@@ -45,7 +50,7 @@ bool firstClick = true;
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 
-void drawCircle();
+Shape* ShapeFactory();
 
 int main()
 
@@ -140,40 +145,10 @@ int main()
 
 	glUseProgram(shaderProg);
 
-	/*
-	drawCircle();
+	
 
-
-	unsigned int VAO, VBO;
-
-	glGenVertexArrays(1, &VAO);
-
-	glBindVertexArray(VAO);
-
-	glGenBuffers(1, &VBO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(), GL_STATIC_DRAW);
-
-
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-
-	glEnableVertexAttribArray(0);
-
-	*/
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-	//std::cout << vertices.size();
-
-
-	Circle C;
-	C.SetAngleDiff(angleDiff);
-	/*
-	c->SetOriginPosition(glm::vec2(0.0f, 0.0f));
-	c->SetCirclePosition(glm::vec2(radius, 0.0f));
-	c->SetAngleDiff(angleDiff);
-	*/
+	C = ShapeFactory();
+	
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -185,29 +160,21 @@ int main()
 
 		processInput(window);
 
-		/*
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(), GL_STATIC_DRAW);
-
-
-		glPointSize(5.0);
-
-		glDrawArrays(GL_TRIANGLE_FAN, 0, vertices.size());*/
-
-		C.SetOriginPosition(points[0]);
-		C.SetCirclePosition(points[1]);
-		C.draw();
 		
 
+		C->SetOriginPosition(points[0]);
+		C->SetOtherPosition(points[1]);
+		C->draw();
+
+		
 		glfwSwapBuffers(window);
 
 		glfwPollEvents();
 
 	}
 
-	/*
-	glDeleteBuffers(1, &VBO);
-
-	glDeleteVertexArrays(1, &VAO);*/
+	
+	
 
 	glfwTerminate();
 
@@ -236,9 +203,24 @@ void processInput(GLFWwindow* window)
 
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE)
 	{
+		double xpos, ypos;
 		//std::cout << "In Release";
 		firstClick = true;
-		
+		if (secondPoint)
+		{
+			glfwGetCursorPos(window, &xpos, &ypos);
+
+			//std::cout << "\nCursor Position : (" << xpos << " : " << ypos << ")" << std::endl;
+
+			float x = (xpos - SCR_WIDTH / 2.0) / (SCR_WIDTH / 2.0);
+
+			float y = -(ypos - SCR_HEIGHT / 2.0) / (SCR_HEIGHT / 2.0) ;
+
+			
+			points[1] = glm::vec2(x , y) ;
+
+		}
+
 	}
 
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
@@ -252,24 +234,19 @@ void processInput(GLFWwindow* window)
 
 			firstClick = false;
 
-
 			float x = (xpos - SCR_WIDTH / 2.0) / (SCR_WIDTH / 2.0);
 
 			float y = -(ypos - SCR_HEIGHT / 2.0) / (SCR_HEIGHT / 2.0);
 
-
-			vertices.push_back(glm::vec2(x, y));
-
-
-			std::cout << x << "\t" << y << "\t" << SCR_WIDTH << "\t" << SCR_HEIGHT << "\tSize:" << vertices.size();
-		
+			
 			if (secondPoint)
 			{
-				points[1] = glm::vec2(x, y);
-				std::cout << "Circl Point Given";
+				points[1] = glm::vec2(x , y ) ;
+				std::cout << "Second Point Given";
 			}
 			else
 			{
+				
 				points[0] = glm::vec2(x, y);
 				points[1] = glm::vec2(x, y);
 			}
@@ -279,30 +256,18 @@ void processInput(GLFWwindow* window)
 
 	}
 
-
 }
 
-
-
-void drawCircle()
-
+Shape* ShapeFactory()
 {
-
-	glm::vec2 point = glm::vec2(0.0f, 0.0f);
-
-	//vertices.push_back(point);
-
-	for (float i = 0.0f; i < 360.0f; i += angleDiff)
-	{
-
-		point.x = cos(i * 3.14f / 180.0f) * radius;
-
-		point.y = sin(i * 3.14f / 180.0f) * radius * SCR_WIDTH / SCR_HEIGHT;
-
-
-		vertices.push_back(point);
-	}
-
-	vertices.push_back(glm::vec2(radius, 0.0f));
-
+	if (current == LINE)
+		return new Line();
+	else if (current == RECTANGLE)
+		return new Rectangle();
+	else if (current == CIRCLE)
+		return new Circle();
+	else
+		return new Line();
 }
+
+
