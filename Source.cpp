@@ -7,24 +7,27 @@
 
 #include "Shapes.h"
 
-const int SCR_WIDTH = 800, SCR_HEIGHT = 600;
+//const int SCR_WIDTH = 800, SCR_HEIGHT = 600;
+
+enum Shape_Type
+{
+	LINE,RECTANGLE,CIRCLE,POLYGON
+};
+Shape_Type current = CIRCLE;
 
 
-bool secondPoint = false;
+std::vector<Shape*> shapes;
 
-//float vertices[100];
-std::vector<glm::vec2> vertices;
-int n = 0;
+Shape *C;
 
-glm::vec2 points[2] = {glm::vec2(0.0f,0.0f),glm::vec2(0.0f,0.0f)};
+
+glm::vec2 points[2] = { glm::vec2(0.0f,0.0f),glm::vec2(0.0f,0.0f) };
 
 //Circle Parameters
 const float angleDiff = 10.0f;
 float radius = 0.5f;
 
 //
-
-//Circle *c = new Circle();
 
 
 const char* vertexShaderSource =
@@ -41,11 +44,21 @@ const char* fragmentShaderSource =
 
 
 bool firstClick = true;
+bool firstUndo = true;
+bool secondPoint = false;
+bool toFill = true;
+bool firstFill = true;
+bool firstPolygon = true;
+
+int polygonPoints = 0;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 
-void drawCircle();
+glm::vec2 ScreenToWorldPoint(glm::vec2 point);
+Shape* ShapeFactory();
+void menu();
+
 
 int main()
 
@@ -140,40 +153,18 @@ int main()
 
 	glUseProgram(shaderProg);
 
-	/*
-	drawCircle();
+	
 
+	//C = ShapeFactory();
+	
+	C = NULL;
 
-	unsigned int VAO, VBO;
+	C = ShapeFactory();
+	shapes.push_back(C);
 
-	glGenVertexArrays(1, &VAO);
+	C->SetFill(toFill);
 
-	glBindVertexArray(VAO);
-
-	glGenBuffers(1, &VBO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(), GL_STATIC_DRAW);
-
-
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-
-	glEnableVertexAttribArray(0);
-
-	*/
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-	//std::cout << vertices.size();
-
-
-	Circle C;
-	C.SetAngleDiff(angleDiff);
-	/*
-	c->SetOriginPosition(glm::vec2(0.0f, 0.0f));
-	c->SetCirclePosition(glm::vec2(radius, 0.0f));
-	c->SetAngleDiff(angleDiff);
-	*/
+	menu();
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -183,31 +174,31 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT);
 
 
-		processInput(window);
-
-		/*
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(), GL_STATIC_DRAW);
-
-
-		glPointSize(5.0);
-
-		glDrawArrays(GL_TRIANGLE_FAN, 0, vertices.size());*/
-
-		C.SetOriginPosition(points[0]);
-		C.SetCirclePosition(points[1]);
-		C.draw();
 		
 
+		
+
+		processInput(window);
+
+		
+		//C->draw();
+
+		for (int i = 0; i < shapes.size(); i++)
+			shapes[i]->draw();
+		
+		/*
+		if (C != NULL)
+		{
+			C->SetOriginPosition(points[0]);
+			C->SetOtherPosition(points[1]);
+		
+		}*/
 		glfwSwapBuffers(window);
 
 		glfwPollEvents();
 
 	}
-
-	/*
-	glDeleteBuffers(1, &VBO);
-
-	glDeleteVertexArrays(1, &VAO);*/
+		
 
 	glfwTerminate();
 
@@ -236,9 +227,25 @@ void processInput(GLFWwindow* window)
 
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE)
 	{
+		double xpos, ypos;
 		//std::cout << "In Release";
 		firstClick = true;
-		
+		if (secondPoint)
+		{
+			glfwGetCursorPos(window, &xpos, &ypos);
+
+			//std::cout << "\nCursor Position : (" << xpos << " : " << ypos << ")" << std::endl;
+			
+			glm::vec2 Coord = glm::vec2(xpos, ypos);
+
+			Coord = ScreenToWorldPoint(Coord);
+
+			if(current!=POLYGON)
+				C->SetOtherPosition(Coord); 
+
+
+		}
+
 	}
 
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
@@ -248,61 +255,166 @@ void processInput(GLFWwindow* window)
 		{
 			glfwGetCursorPos(window, &xpos, &ypos);
 
-			std::cout << "\nCursor Position : (" << xpos << " : " << ypos << ")" << std::endl;
+			//std::cout << "\nCursor Position : (" << xpos << " : " << ypos << ")" << std::endl;
 
 			firstClick = false;
 
+			glm::vec2 Coord = glm::vec2(xpos, ypos);
 
-			float x = (xpos - SCR_WIDTH / 2.0) / (SCR_WIDTH / 2.0);
+			Coord = ScreenToWorldPoint(Coord);
 
-			float y = -(ypos - SCR_HEIGHT / 2.0) / (SCR_HEIGHT / 2.0);
-
-
-			vertices.push_back(glm::vec2(x, y));
-
-
-			std::cout << x << "\t" << y << "\t" << SCR_WIDTH << "\t" << SCR_HEIGHT << "\tSize:" << vertices.size();
-		
 			if (secondPoint)
 			{
-				points[1] = glm::vec2(x, y);
-				std::cout << "Circl Point Given";
+				C->SetOtherPosition(Coord); //std::cout << "Second Point Given";
+
 			}
+					 
 			else
 			{
-				points[0] = glm::vec2(x, y);
-				points[1] = glm::vec2(x, y);
+				if (current != POLYGON)
+				{
+					C = ShapeFactory();
+					shapes.push_back(C);
+
+					C->SetFill(toFill);
+
+					glm::vec2 Coord = glm::vec2(xpos, ypos);
+
+					Coord = ScreenToWorldPoint(Coord);
+
+					C->SetOriginPosition(Coord);
+					C->SetOtherPosition(Coord);
+				}
+				else
+				{
+					secondPoint = !secondPoint;
+
+					glm::vec2 Coord = glm::vec2(xpos, ypos);
+
+					Coord = ScreenToWorldPoint(Coord);
+
+					C->SetOriginPosition(Coord);
+					C->SetOtherPosition(Coord);
+				}
+				
 			}
 			secondPoint = !secondPoint;
-
 		}
 
 	}
 
-
-}
-
-
-
-void drawCircle()
-
-{
-
-	glm::vec2 point = glm::vec2(0.0f, 0.0f);
-
-	//vertices.push_back(point);
-
-	for (float i = 0.0f; i < 360.0f; i += angleDiff)
+	if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
 	{
-
-		point.x = cos(i * 3.14f / 180.0f) * radius;
-
-		point.y = sin(i * 3.14f / 180.0f) * radius * SCR_WIDTH / SCR_HEIGHT;
-
-
-		vertices.push_back(point);
+		secondPoint = false;
+		firstClick = true;
+		current = CIRCLE;
 	}
+	if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+	{
+		secondPoint = false;
+		firstClick = true;
+		current = LINE;
+	}
+	if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
+	{
+		secondPoint = false;
+		firstClick = true;
+		current = RECTANGLE;
+	}
+	if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
+	{
+		if (firstPolygon)
+		{
+			firstPolygon = false;
 
-	vertices.push_back(glm::vec2(radius, 0.0f));
+			current = POLYGON;
+			secondPoint = false;
+			firstClick = true;
+
+			points[0] = points[1] = glm::vec2(0.0f, 0.0f);
+
+			C = ShapeFactory();
+			shapes.push_back(C);
+
+			C->SetFill(toFill);
+		}
+	}
+	if (glfwGetKey(window, GLFW_KEY_4) == GLFW_RELEASE)
+	{
+		firstPolygon = true;
+	}
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+	{
+		shapes.clear();
+	}
+	if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
+	{
+		if (firstUndo)
+		{
+			shapes.pop_back();
+			firstUndo = false;
+			//std::cout << shapes.size();
+		}
+	}
+	if (glfwGetKey(window, GLFW_KEY_U) == GLFW_RELEASE)
+	{
+		firstUndo = true;
+	}
+	if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS)
+	{
+		if (firstFill)
+		{
+			toFill = !toFill;
+			firstFill = false;
+			
+			system("cls");
+
+			menu();
+		}
+	}
+	if (glfwGetKey(window, GLFW_KEY_F) == GLFW_RELEASE)
+	{
+		firstFill = true;
+	}
+}
+
+
+glm::vec2 ScreenToWorldPoint(glm::vec2 point)
+{
+	glm::vec2 newPoint = glm::vec2(0.0f, 0.0f);
+	newPoint.x = (point.x - SCR_WIDTH / 2.0) / (SCR_WIDTH / 2.0);
+
+	newPoint.y = -(point.y - SCR_HEIGHT / 2.0) / (SCR_HEIGHT / 2.0);
+
+	return newPoint;
 
 }
+
+
+Shape* ShapeFactory()
+{
+	if (current == LINE)
+		return new Line();
+	else if (current == RECTANGLE)
+		return new Rectangle();
+	else if (current == CIRCLE)
+		return new Circle();
+	else if (current == POLYGON)
+		return new Polygon();
+	else
+		return new Line();
+}
+
+
+void menu()
+{
+	std::cout << "\nKey\tFunction"
+		<< "\n1\tCircle"
+		<< "\n2\tLine"
+		<< "\n3\tRectangle"
+		<< "\n4\tPolygon(Press 4 for new Polygon)"
+		<<"\nU\tUndo"
+		<< "\nF\tFill \t:" << toFill
+		<<"\nSpace\tClear";
+}
+
